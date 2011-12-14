@@ -189,7 +189,7 @@ class APNSNotificationWrapper(object):
 
         self.connection.connect(apnsHost, self.apnsPort)
 
-    def discounnect(self):
+    def disconnect(self):
         """Close connection ton APNS server"""
         self.connection.close()
 
@@ -220,14 +220,6 @@ class APNSNotification(object):
     APNSNotificationWrapper wrap Apple Push Notification Service into
     python object.
     """
-
-    command = 0
-    badge = None
-    sound = None
-    alert = None
-
-    deviceToken = None
-
     maxPayloadLength = 256
     deviceTokenLength = 32
 
@@ -242,6 +234,8 @@ class APNSNotification(object):
         self.soundValue = None
         self.alertObject = None
         self.deviceToken = None
+        self.identifierValue = None
+        self.expiryValue = None
 
     def token(self, token):
         """
@@ -291,8 +285,8 @@ class APNSNotification(object):
 
     def sound(self, sound='default'):
         """
-        Add a custom sound to the noficitaion.
-        By defailt it is default sound ('default')
+        Add a custom sound to the nofication.
+        By default it is default sound ('default')
         """
         if sound == None:
             self.soundValue = None
@@ -311,6 +305,22 @@ class APNSNotification(object):
                                 "hould be String, Unicode string or an "\
                                 "instance of APNSAlert object")
         self.alertObject = alert
+        return self
+
+    def identifier(self, identifier=None):
+        """
+        Add a custom identifier to the nofication.
+        If set, enhanced notification format gonna be used
+        """
+        self.identifierValue = identifier
+        return self
+
+    def expiry(self, expiry=None):
+        """
+        Add a custom exiry to the nofication.
+        If set, enhanced notification format gonna be used
+        """
+        self.expiryValue = expiry
         return self
 
     def appendProperty(self, *args):
@@ -374,17 +384,19 @@ class APNSNotification(object):
         payload = self.build()
         payloadLength = len(payload)
         tokenLength = len(self.deviceToken)
-        # Below not used at the moment
-        # tokenFormat = "s" * tokenLength
-        # payloadFormat = "s" * payloadLength
+        
+        # command
+        # - 0: normal format
+        # - 1: enhanced format
+        command = (self.identifierValue or self.expiryValue) and 1 or 0
 
-        apnsPackFormat = "!BH" + str(tokenLength) + "sH" + \
-                                            str(payloadLength) + "s"
+        apnsPackFormat = '!B%sH%dsH%ds' % (command is 1 and 'Ii' or '',
+                                            tokenLength,
+                                            payloadLength)
 
         # build notification message in binary format
-        return struct.pack(apnsPackFormat,
-                                    self.command,
-                                    tokenLength,
-                                    self.deviceToken,
-                                    payloadLength,
-                                    payload)
+        params = [command]
+        if command is 1:
+          params += [self.identifierValue or 0, self.expiryValue or 1]
+        params += [tokenLength, self.deviceToken, payloadLength, payload]
+        return struct.pack(apnsPackFormat, *params)
