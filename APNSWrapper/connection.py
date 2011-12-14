@@ -56,18 +56,19 @@ class OpenSSLCommandLine(APNSConnectionContext):
     port = None
     executable = None
     debug = False
+    command = ''
 
     def __init__(self, certificate=None, executable=None, debug=False):
         self.certificate = certificate
         self.executable = executable
         self.debug = debug
-
+        
     def connect(self, host, port):
         self.host = host
         self.port = port
 
     def _command(self):
-        command = "%(executable)s s_client -ssl3 -cert "\
+        self.command = "%(executable)s s_client -ssl3 -cert "\
                     "%(cert)s -connect %(host)s:%(port)s" % {
             'executable': self.executable,
             'cert': self.certificate,
@@ -75,7 +76,7 @@ class OpenSSLCommandLine(APNSConnectionContext):
             'port': self.port,
             }
 
-        return subprocess.Popen(command.split(' '), \
+        return subprocess.Popen(self.command.split(' '), \
                             shell=False, bufsize=256, \
                             stdin=subprocess.PIPE, \
                             stdout=subprocess.PIPE, \
@@ -92,7 +93,7 @@ class OpenSSLCommandLine(APNSConnectionContext):
         std_out = pipe.stdout
         if self.debug:
             print "-------------- SSL Debug Output --------------"
-            print command
+            print self.command
             print "----------------------------------------------"
             print std_out.read()
             std_out.close()
